@@ -1,0 +1,11 @@
+{
+  "name": "Space Balloon Tracker 위치 기록",
+  "short_name": "위치 기록",
+  "description": "오프라인 GPS 위치 수집 및 동기화",
+  "lang": "ko",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f3f6fa",
+  "theme_color": "#102b46"
+}

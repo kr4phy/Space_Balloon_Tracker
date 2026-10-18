@@ -1,0 +1,21 @@
+[project]
+name = "space-balloon-tracker"
+version = "0.1.0"
+description = "Offline-capable GPS collection and route dashboard"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "jinja2>=3.1.4",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.27.0",
+    "pytest>=8.0.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Space Balloon Tracker</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@1.0.2/css/bulma.min.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+  <link rel="stylesheet" href="/static/dashboard.css">
+</head>
+<body>
+  <section class="hero is-dark is-small">
+    <div class="hero-body">
+      <div class="container is-fluid is-flex is-justify-content-space-between is-align-items-center is-flex-wrap-wrap">
+        <div><p class="title is-4">Space Balloon Tracker</p><p class="subtitle is-6">GPS 이동 경로 대시보드</p></div>
+        <a class="button is-info is-light" href="/client/위치/">위치 클라이언트 열기</a>
+      </div>
+    </div>
+  </section>
+  <main class="section pt-5">
+    <div class="container is-fluid">
+      <div class="columns is-variable is-4">
+        <aside class="column is-3-desktop is-4-tablet">
+          <div class="box">
+            <h1 class="title is-5">경로 조회</h1>
+            <div class="field"><label class="label" for="client-filter">클라이언트</label><div class="select is-fullwidth"><select id="client-filter"><option value="">전체 클라이언트</option></select></div></div>
+            <div class="field"><label class="label" for="start-time">시작 시간</label><input class="input" id="start-time" type="datetime-local"></div>
+            <div class="field"><label class="label" for="end-time">종료 시간</label><input class="input" id="end-time" type="datetime-local"></div>
+            <button id="load-routes" class="button is-link is-fullwidth">경로 표시</button>
+            <div class="content is-small mt-4"><p id="status" class="has-text-grey" aria-live="polite">데이터를 불러오는 중…</p><p id="stats" class="mb-2"></p><div id="legend" class="route-legend"></div></div>
+          </div>
+          <div class="box"><h2 class="title is-6">클라이언트</h2><div id="clients-list" class="content is-small">등록된 클라이언트가 없습니다.</div></div>
+          <p class="is-size-7 has-text-grey">위치 클라이언트는 HTTPS 또는 localhost에서 위치 권한이 필요합니다. 공용 인터넷에 배포할 경우 인증과 HTTPS를 추가하세요.</p>
+        </aside>
+        <section class="column"><div class="box map-box"><div id="map" role="region" aria-label="클라이언트 GPS 이동 경로 지도"></div></div></section>
+      </div>
+    </div>
+  </main>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script>
+    window.DASHBOARD_DEFAULTS = {start: "{{ default_from }}", end: "{{ default_to }}"};
+  </script>
+  <script src="/static/dashboard.js" defer></script>
+</body>
+</html>
