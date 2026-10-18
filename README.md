@@ -1,61 +1,91 @@
 # Space Balloon Tracker
 
-FastAPI + Uvicorn + Jinja2 + SQLite 서버와 오프라인 우선 GPS 클라이언트입니다. 클라이언트가 수집한 위치는 브라우저 IndexedDB에 먼저 저장되며, 네트워크가 복구되면 API에 묶음 전송됩니다. 대시보드는 클라이언트 이름과 색상을 구분해 시간대별 이동 경로를 지도에 표시합니다.
+FastAPI REST API + Uvicorn + Jinja2 + SQLite 서버와 Python GPS 클라이언트입니다. 클라이언트 코드는 저장소의 `client/` 디렉터리에 있습니다. Python 클라이언트는 GPS 데이터를 **로컬 SQLite 대기열에 먼저 저장**하고, 네트워크가 연결되면 REST API로 전송합니다. 서버는 위치를 DB에 기록하고, 지도 대시보드는 클라이언트 이름별로 시간순 이동 경로를 표시합니다.
 
-## 요구 사항
+## 요구 사항 및 서버 실행
 
 - Python 3.11 이상
 - [uv](https://docs.astral.sh/uv/)
-- 위치 정보 사용은 브라우저 보안 정책상 HTTPS 또는 `localhost`에서 허용됩니다.
 
-## 실행
-
-저장소 루트에서 다음을 실행합니다.
+저장소 루트에서:
 
 ```bash
 uv sync --dev
 uv run uvicorn app.main:app --reload
 ```
 
-브라우저에서 대시보드 `http://127.0.0.1:8000/` 또는 위치 수집 클라이언트 `http://127.0.0.1:8000/client/위치/`를 엽니다. 모바일 기기에서 테스트하려면 서버를 네트워크 인터페이스에 바인딩해야 합니다. 실제 GPS 기능은 HTTPS 도메인(또는 기기에서 신뢰되는 개발 환경)으로 제공하세요.
+대시보드: `http://127.0.0.1:8000/`<br>
+대화형 REST API 문서: `http://127.0.0.1:8000/docs`
+OpenAPI 스키마: `http://127.0.0.1:8000/openapi.json`
 
-기본 SQLite 파일은 `data/tracker.sqlite3`이며 최초 실행 시 생성됩니다. 다른 DB를 사용하려면 `TRACKER_DB_PATH=/경로/파일.sqlite3` 환경 변수를 설정하세요.
+기본 서버 DB는 최초 실행 시 만들어지는 `data/tracker.sqlite3`입니다. `TRACKER_DB_PATH=/경로/파일.sqlite3`로 저장 위치를 변경할 수 있습니다.
 
-## 클라이언트 사용
+## Python 클라이언트
 
-1. `/client/위치/`에서 클라이언트 이름을 지정합니다. 이름과 이 브라우저의 고유 클라이언트 ID는 브라우저 로컬 저장소에 보관됩니다.
-2. 기록 간격을 고르고 **기록 시작**을 누른 뒤 브라우저의 위치 접근을 허용합니다.
-3. 위치는 우선 IndexedDB에 저장됩니다. 오프라인 중에는 대기열에 쌓이고, 온라인 복구 시 자동 전송됩니다. **지금 동기화**로 수동 전송할 수도 있습니다.
-4. 서비스 워커가 앱 기본 파일을 캐시하므로 한 번 온라인으로 연 앱을 이후 오프라인에서 다시 열 수 있습니다.
-5. 대시보드에서 클라이언트 및 시간 구간을 선택해 경로를 조회합니다. 경로 색상은 클라이언트별로 구분되고 각 기록의 팝업에 이름·시각·좌표·정확도가 표시됩니다.
+Python 클라이언트는 `client/tracker.py`에 있습니다. Python 표준 라이브러리만 사용하므로 추가 HTTP 클라이언트 패키지는 필요하지 않습니다. 각 클라이언트의 UUID와 미전송 위치 대기열은 기본적으로 `~/.space-balloon-tracker/queue.sqlite3`에 보존됩니다. 이름을 붙여 클라이언트를 구별하세요.
 
-브라우저와 모바일 OS는 백그라운드 탭을 정지하거나 위치 권한을 회수할 수 있습니다. 브라우저 기반 GPS 수집은 화면을 열어 둔 상태에서 가장 안정적이며, 백그라운드에서 항상 일정 간격 수집이 보장되지는 않습니다. 웹앱을 설치해도 OS·브라우저 정책은 동일하게 적용됩니다.
+### GPSD에서 GPS를 읽어 주기적으로 기록
 
-## API
+장치에 GPS 수신기가 연결되고 gpsd가 실행 중이어야 합니다. 클라이언트는 gpsd의 JSON 스트리밍 프로토콜을 읽습니다.
 
-- `GET /health` — 프로세스 상태
-- `POST /api/points/batch` — 클라이언트 이름과 위치 최대 500개를 수신. 클라이언트 ID와 포인트 UUID를 키로 사용해 재전송은 안전하게 중복 제거됩니다.
-- `GET /api/clients` — 등록 클라이언트와 위치 개수
-- `GET /api/points?client_id=<uuid>&start=<ISO-8601>&end=<ISO-8601>&limit=10000` — 시간순 위치 조회. 모든 필터는 선택 사항이며 최대 한 번에 20,000개를 반환합니다.
-- `GET /api/summary` — 전체 클라이언트와 위치 개수
-
-예시 배치 요청:
-
-```json
-{
-  "client_id": "d6aafcd0-aed8-47ca-8f19-949ade3a11d7",
-  "client_name": "열기구 A",
-  "points": [
-    {
-      "id": "8dd0667a-5457-496a-a246-94ce88233a87",
-      "latitude": 37.5665,
-      "longitude": 126.978,
-      "accuracy": 8.5,
-      "recorded_at": "2026-10-18T14:00:00+00:00"
-    }
-  ]
-}
+```bash
+uv run python -m client.tracker \
+  --server http://127.0.0.1:8000 \
+  --name "열기구 A" \
+  run --interval 60
 ```
+
+기본 gpsd 주소는 `127.0.0.1:2947`입니다. 필요한 경우 `run --gpsd-host 192.168.1.20 --gpsd-port 2947`로 변경할 수 있습니다. 샘플을 가져오는 동안 네트워크/API가 끊겨도 위치는 로컬 SQLite에 남고, 다음 주기에 재전송을 시도합니다. Ctrl+C로 중지해도 아직 서버에 가지 않은 기록은 유지됩니다.
+
+### 좌표 수동 등록 및 오프라인 전송
+
+GPSD가 없는 장치에서는 기록된 좌표를 큐에 넣을 수 있습니다. 서버와 연결되어 있으면 즉시 동기화를 시도하고, 실패하면 다음 `sync` 실행까지 로컬에 보존합니다.
+
+```bash
+uv run python -m client.tracker \
+  --server http://127.0.0.1:8000 \
+  --name "열기구 A" \
+  add --latitude 37.5665 --longitude 126.978 --accuracy 8.5
+
+uv run python -m client.tracker \
+  --server http://127.0.0.1:8000 \
+  --name "열기구 A" \
+  sync
+```
+
+다른 서버 주소나 큐 파일은 `--server`, `--queue-db` 옵션으로 지정합니다. 전역 옵션은 `run`, `add`, `sync` 서브명령 앞에 둡니다. 환경 변수 `TRACKER_SERVER`, `TRACKER_CLIENT_DB`도 기본값 설정에 사용할 수 있습니다. GPSD가 없는 기기/운영체제는 해당 OS GPS 서비스를 읽도록 `read_gpsd_fix`를 교체하거나 위치 데이터를 `OfflineQueue.enqueue()`에 전달하는 어댑터를 붙이면 됩니다.
+
+## REST API
+
+API는 `/api/v1` 아래 리소스 기반 경로를 사용합니다. 클라이언트 등록은 `PUT`으로 같은 ID를 반복 제출해도 안전하고, 위치 생성은 `POST`로 최대 500건을 한 번에 보낼 수 있습니다. 위치 ID를 UUID로 고정해 네트워크 재시도 중 같은 기록이 중복 저장되지 않게 합니다.
+
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| `GET` | `/health` | 서버 상태 |
+| `PUT` | `/api/v1/clients/{client_id}` | 클라이언트 생성 또는 이름 갱신. 본문은 `{"name":"열기구 A"}` |
+| `GET` | `/api/v1/clients` | 클라이언트 목록, 이름 및 위치 개수 |
+| `GET` | `/api/v1/clients/{client_id}` | 클라이언트 상세 |
+| `POST` | `/api/v1/clients/{client_id}/locations` | 해당 클라이언트의 위치 리소스 여러 건 생성 |
+| `GET` | `/api/v1/clients/{client_id}/locations` | 특정 클라이언트 위치를 시간순 조회 |
+| `GET` | `/api/v1/locations` | 전체 위치 조회. `client_id`, `start`, `end`, `limit` 필터 지원 |
+| `GET` | `/api/v1/locations/summary` | 전체 클라이언트 및 위치 개수 |
+
+예시 (클라이언트 생성/갱신 및 위치 여러 건 생성):
+
+```bash
+CLIENT_ID="d6aafcd0-aed8-47ca-8f19-949ade3a11d7"
+curl -X PUT "http://127.0.0.1:8000/api/v1/clients/$CLIENT_ID" \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"열기구 A"}'
+
+curl -X POST "http://127.0.0.1:8000/api/v1/clients/$CLIENT_ID/locations" \
+  -H 'Content-Type: application/json' \
+  -d '{"locations":[{"id":"8dd0667a-5457-496a-a246-94ce88233a87","latitude":37.5665,"longitude":126.978,"accuracy":8.5,"recorded_at":"2026-10-18T14:00:00+00:00"}]}'
+
+curl 'http://127.0.0.1:8000/api/v1/locations?client_id=d6aafcd0-aed8-47ca-8f19-949ade3a11d7&start=2026-10-18T00:00:00Z&end=2026-10-19T00:00:00Z'
+```
+
+`recorded_at`은 시간대가 포함된 ISO-8601 시각입니다. 위치 조회 최대 기본값은 10,000건, 최대 허용값은 20,000건입니다. API 스키마와 요청/응답 예시는 `/docs`에서 확인할 수 있습니다.
 
 ## 테스트
 
@@ -63,6 +93,6 @@ uv run uvicorn app.main:app --reload
 uv run pytest
 ```
 
-## 배포 및 개인정보
+## 지도 및 배포 주의
 
-지도는 Leaflet과 OpenStreetMap 타일을 사용하고, Bulma·Leaflet 라이브러리는 CDN에서 불러옵니다. 지도 배경 타일을 표시하려면 인터넷 연결이 필요합니다. GPS 기록은 민감 정보입니다. 이 기본 구현에는 사용자 인증·전송 권한 검증이 없으므로 공용 인터넷에 그대로 노출하지 마세요. 공개 배포 전 HTTPS, 인증/인가, 요청 제한, 백업·보존 정책을 추가하고 서버 방화벽으로 접근을 제한하세요.
+대시보드는 Bulma와 Leaflet을 CDN에서 불러오고 OpenStreetMap 타일을 사용하므로 브라우저의 지도 표시에는 인터넷이 필요합니다. GPS 좌표는 민감 정보입니다. 기본 서버에는 인증·인가가 포함되지 않았으므로 공개 인터넷에 그대로 노출하지 마세요. 공용 배포 전에 HTTPS, 인증 및 접근 제한, 요청 제한, 데이터 보존·백업 정책을 구성하세요. Python 클라이언트와 서버 사이를 공용 네트워크에서 사용할 때도 HTTPS를 사용하세요.

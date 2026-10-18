@@ -20,7 +20,7 @@
     return response.json();
   }
   async function loadClients() {
-    const clients = await readJson("/api/clients");
+    const clients = await readJson("/api/v1/clients");
     const select = el("client-filter");
     for (const client of clients) {
       if (!colors.has(client.id)) colors.set(client.id, palette[colors.size % palette.length]);
@@ -42,7 +42,7 @@
         name.className = "has-text-weight-semibold";
         const meta = document.createElement("div");
         meta.className = "client-meta";
-        meta.textContent = `${client.point_count}개 위치${client.last_recorded_at ? ` · 마지막 ${displayDate(client.last_recorded_at)}` : ""}`;
+        meta.textContent = `${client.location_count}개 위치${client.last_recorded_at ? ` · 마지막 ${displayDate(client.last_recorded_at)}` : ""}`;
         row.append(name, meta);
         list.append(row);
       }
@@ -58,7 +58,7 @@
     const end = el("end-time").value;
     if (start) params.set("start", new Date(start).toISOString());
     if (end) params.set("end", new Date(end).toISOString());
-    return `/api/points?${params}`;
+    return `/api/v1/locations?${params}`;
   }
   async function loadRoutes() {
     const button = el("load-routes");
@@ -106,8 +106,8 @@
         legend.append(item);
       }
       if (bounds.length) map.fitBounds(bounds, { padding: [28, 28], maxZoom: 16 });
-      const summary = await readJson("/api/summary");
-      el("stats").textContent = `현재 조회 ${points.length.toLocaleString("ko-KR")}개 · 전체 ${summary.points.toLocaleString("ko-KR")}개 위치 / ${summary.clients}개 클라이언트`;
+      const summary = await readJson("/api/v1/locations/summary");
+      el("stats").textContent = `현재 조회 ${points.length.toLocaleString("ko-KR")}개 · 전체 ${summary.locations.toLocaleString("ko-KR")}개 위치 / ${summary.clients}개 클라이언트`;
       el("status").textContent = points.length ? "클라이언트별 색상으로 이동 경로를 표시했습니다." : "선택한 기간에 위치 기록이 없습니다.";
     } catch (error) {
       el("status").textContent = `불러오지 못했습니다: ${error.message}`;
